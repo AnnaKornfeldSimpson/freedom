@@ -1,4 +1,4 @@
-/*globals freedom:true, exports */
+/*globals console, freedom:true, exports */
 /*jslint indent:2, white:true, sloppy:true, browser:true */
 
 /**
@@ -19,13 +19,13 @@ function LoopbackSocialProvider(dispatchEvent) {
 
   //Constants
   this.time = (new Date()).getTime();
-  this.userId = 'Test User';      //My userId
-  this.clientId = 'Test User.0';  //My clientId
+  this.userId = '0';      //My userId
+  this.clientId = '0.client';  //My clientId
   this.social = freedom();
 
   //Populate a fake roster
   this.users = {
-    "Test User": this.makeUserEntry(this.userId),
+    "0": this.makeUserEntry(this.userId),
     "Other User": this.makeUserEntry("Other User"),
     'Johnny Appleseed': this.makeUserEntry('Johnny Appleseed'),
     'Betty Boop': this.makeUserEntry('Betty Boop'),
@@ -147,12 +147,14 @@ LoopbackSocialProvider.prototype.sendMessage = function(to, msg, continuation) {
     return;
   }
 
+  console.log("Social to: " + to + " msg: " + msg);
+  
   if (to === this.userId || to === this.clientId) {
     this.dispatchEvent('onMessage', {
       from: this.clients[this.clientId],
       message: msg
     });
-  } else {
+  } else if (to === "Other User") {
     this.dispatchEvent('onMessage', {
       from: this.clients["Other User.0"],
       message: msg

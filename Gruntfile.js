@@ -338,6 +338,7 @@ module.exports = function (grunt) {
     'karma:browsers'
   ]);
   grunt.registerTask('demo', [
+    'jshint',
     'browserify:freedom',
     'connect:demo'
   ]);

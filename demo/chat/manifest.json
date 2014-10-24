@@ -6,12 +6,12 @@
     "index": "index.html",
     "static": [ 
       "../style.css",
-      "ux.js"
+      "paxosUX.js"
     ]
   },
   "dependencies": {
     "socialprovider": {
-      "url": "../../providers/social/websocket-server/social.ws.json",
+      "url": "../../providers/social/loopback/social.loopback.json",
       "api": "social"
     }
   },

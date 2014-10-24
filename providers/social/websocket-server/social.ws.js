@@ -156,6 +156,7 @@ WSSocialProvider.prototype.sendMessage = function(to, msg, continuation) {
    * @return {Object} status - same schema as 'onStatus' events
    **/
 WSSocialProvider.prototype.logout = function(continuation) {
+  console.log("A logout was called.");
   if (this.conn === null) { // We may not have been logged in
     this.changeRoster(this.id, false);
     continuation(undefined, this.err("OFFLINE"));

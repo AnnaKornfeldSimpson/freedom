@@ -1,5 +1,5 @@
 /*jslint sloppy:true */
-/*globals freedom */
+/*globals freedom, console */
 /**
  * Chat demo backend.
  * Because the Social API provides message passing primitives,
@@ -27,6 +27,7 @@ var Chat = function (dispatchEvent) {
  * sent messages should be forwarded to the Social provider.
  **/
 Chat.prototype.send = function (to, message) {
+  console.log("Send to: " + to);
   return this.social.sendMessage(to, message);
 };
 
@@ -75,7 +76,7 @@ Chat.prototype.boot = function () {
   * On newly online or offline clients, let's update the roster
   **/
   this.social.on('onClientState', function (data) {
-    logger.debug("Roster Change", data);
+    //logger.log("roster change", data);
     if (data.status === this.social.STATUS.OFFLINE) {
       if (this.clientList.hasOwnProperty(data.clientId)) {
         delete this.clientList[data.clientId];

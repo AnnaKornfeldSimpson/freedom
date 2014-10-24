@@ -113,7 +113,17 @@ function start(instance) {
       var text = input.value;
       input.value = "";
       appendLog(document.createTextNode("You: " + text));
-      chatClient.send(activeBuddylistEntry.userId, text);
+      if(activeBuddylistEntry === undefined) {
+        var userId;
+        for(userId in buddylist) {
+          if (buddylist.hasOwnProperty(userId)) {
+            chatClient.send(userId, text);
+          }
+        }
+      }
+      else {
+        chatClient.send(activeBuddylistEntry.userId, text);
+      }
     }
   };
 }
