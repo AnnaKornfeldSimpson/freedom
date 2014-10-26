@@ -19,13 +19,13 @@ function LoopbackSocialProvider(dispatchEvent) {
 
   //Constants
   this.time = (new Date()).getTime();
-  this.userId = '0';      //My userId
+  this.userId = 0;      //My userId
   this.clientId = '0.client';  //My clientId
   this.social = freedom();
 
   //Populate a fake roster
   this.users = {
-    "0": this.makeUserEntry(this.userId),
+    0: this.makeUserEntry(this.userId),
     "Other User": this.makeUserEntry("Other User"),
     'Johnny Appleseed': this.makeUserEntry('Johnny Appleseed'),
     'Betty Boop': this.makeUserEntry('Betty Boop'),

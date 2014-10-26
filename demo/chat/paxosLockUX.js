@@ -9,7 +9,9 @@ function start(instance) {
     // If messages are going to a specific user, store that here.
     activeBuddylistEntry,
     buddylist,
-    input;
+    input,
+    lockStatus = [],
+    approvedQueue = [];
     
   document.getElementById('msg-input').focus();
   
@@ -77,6 +79,22 @@ function start(instance) {
   // Paxos learned value from somebody, from:from, value:value
   chatClient.on('recv-message', function (data) {
     console.log("Client Received " + data.value + " from " + data.from);
+    var lockNum = +(data.value.substr(data.value.indexOf('(') + 1, data.value.length - 1));
+    if (data.value.indexOf('(') === 4) { // it's a lock
+      if (lockStatus[lockNum] === true) { 
+        approvedQueue[lockNum].push();
+      }
+      else {
+        lockStatus[lockNum] = true;
+      }
+    }
+    else { /* unlock */
+      lockStatus[lockNum] = false;
+      if(approvedQueue[lockNum].length > 0) {
+        approvedQueue[lockNum].shift();
+        lockStatus[lockNum] = true;
+      }
+    }
     appendLog(document.createTextNode(data.from + ": " + data.value));
   });
   
@@ -109,8 +127,20 @@ function start(instance) {
     if (evt.keyCode === 13) {
       var text = input.value;
       input.value = "";
-      chatClient.enqueue(text);
-      appendLog(document.createTextNode("Your request was enqueued: " + text));
+      if (text.indexOf('lock(') !== -1 || text.indexOf('unlock(') !== -1) {
+        var numStart = text.indexOf('(') + 1;
+        if (!isNaN(+text.substr(numStart, text.length - 1)) && text.indexOf(')') === text.length - 1) {
+          chatClient.enqueue(text);
+          appendLog(document.createTextNode("Your request was enqueued: " + text));
+        }
+        else {
+          appendLog(document.createTextNode("Entry must be a lock(x) or unlock(x)"));
+        }
+      }
+      else {
+        appendLog(document.createTextNode("Entry must be a lock(x) or unlock(x)"));
+      }
+      
     }
   };
 }
