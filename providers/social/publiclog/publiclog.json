@@ -1,0 +1,11 @@
+{
+  "name": "Public Log Rendezvous",
+  "description": "Social provider backed by a public log (via append and get interfaces)",
+  "app": {
+    "script": "publiclog.js"
+  },
+  "provides": [
+    "social"
+  ],
+  "default": "social"
+}

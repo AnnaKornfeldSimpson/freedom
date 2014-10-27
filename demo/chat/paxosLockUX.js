@@ -11,7 +11,7 @@ function start(instance) {
     buddylist,
     input,
     lockStatus = [],
-    approvedQueue = [];
+    approvedQueue = {};
     
   document.getElementById('msg-input').focus();
   
@@ -78,9 +78,9 @@ function start(instance) {
 
   // Paxos learned value from somebody, from:from, value:value
   chatClient.on('recv-message', function (data) {
-    console.log("Client Received " + data.value + " from " + data.from);
-    var lockNum = +(data.value.substr(data.value.indexOf('(') + 1, data.value.length - 1));
-    if (data.value.indexOf('(') === 4) { // it's a lock
+    console.log("Client Received " + data.message + " from " + data.from);
+    var lockNum = +(data.message.substring(data.message.indexOf('(') + 1, data.message.length - 1));
+    if (data.message.indexOf('(') === 4) { // it's a lock
       if (lockStatus[lockNum] === true) { 
         approvedQueue[lockNum].push();
       }
@@ -90,12 +90,12 @@ function start(instance) {
     }
     else { /* unlock */
       lockStatus[lockNum] = false;
-      if(approvedQueue[lockNum].length > 0) {
+      if(approvedQueue.hasOwnProperty(lockNum) && approvedQueue[lockNum].length > 0) {
         approvedQueue[lockNum].shift();
         lockStatus[lockNum] = true;
       }
     }
-    appendLog(document.createTextNode(data.from + ": " + data.value));
+    appendLog(document.createTextNode(data.from + ": " + data.message));
   });
   
   // On new messages, append it to our message log
@@ -128,17 +128,17 @@ function start(instance) {
       var text = input.value;
       input.value = "";
       if (text.indexOf('lock(') !== -1 || text.indexOf('unlock(') !== -1) {
-        var numStart = text.indexOf('(') + 1;
-        if (!isNaN(+text.substr(numStart, text.length - 1)) && text.indexOf(')') === text.length - 1) {
+        var num = text.substring(text.indexOf('(') + 1, text.length - 1);
+        if (!isNaN(num) && text.indexOf(')') === text.length - 1) {
           chatClient.enqueue(text);
           appendLog(document.createTextNode("Your request was enqueued: " + text));
         }
         else {
-          appendLog(document.createTextNode("Entry must be a lock(x) or unlock(x)"));
+          appendLog(document.createTextNode("Entry must be a lock(x) or unlock(x): " + text));
         }
       }
       else {
-        appendLog(document.createTextNode("Entry must be a lock(x) or unlock(x)"));
+        appendLog(document.createTextNode("Entry must be a lock(x) or unlock(x): " + text));
       }
       
     }

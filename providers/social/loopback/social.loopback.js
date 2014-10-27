@@ -26,17 +26,7 @@ function LoopbackSocialProvider(dispatchEvent) {
   //Populate a fake roster
   this.users = {
     0: this.makeUserEntry(this.userId),
-    "Other User": this.makeUserEntry("Other User"),
-    'Johnny Appleseed': this.makeUserEntry('Johnny Appleseed'),
-    'Betty Boop': this.makeUserEntry('Betty Boop'),
-    'Big Bird': this.makeUserEntry('Big Bird'),
-    'Bugs Bunny': this.makeUserEntry('Bugs Bunny'),
-    'Daffy Duck': this.makeUserEntry('Daffy Duck'),
-    'Kermit the Frog': this.makeUserEntry('Kermit the Frog'),
-    'Minnie Mouse': this.makeUserEntry('Minnie Mouse'),
-    'Porky Pig': this.makeUserEntry('Porky Pig'),
-    'Swedish Chef': this.makeUserEntry('Swedish Chef'),
-    'Yosemite Sam': this.makeUserEntry('Yosemite Sam')
+    1: this.makeUserEntry(1),
   };
   this.clients = {};
 }
@@ -55,23 +45,23 @@ LoopbackSocialProvider.prototype.fillClients = function() {
   var STATUSES = ['ONLINE', 'OFFLINE', 'ONLINE_WITH_OTHER_APP'],
       userId, nClients, clientId, i;
   this.clients = {
-    "Test User.0": {
+    "0.client": {
       'userId': this.userId,
       'clientId': this.clientId,
       'status': "ONLINE",
       'lastUpdated': this.time,
       'lastSeen': this.time
     },
-    "Other User.0": {
-      'userId': "Other User",
-      'clientId': "Other User.0", 
+    "1.client": {
+      'userId': 1,
+      'clientId': "1.client",
       'status': "ONLINE",
       'lastUpdated': this.time,
       'lastSeen': this.time
-    }
+    },
   };
 
-  for (userId in this.users) {
+  /*for (userId in this.users) {
     if (this.users.hasOwnProperty(userId)) {
       nClients = userId.charCodeAt(0) % 3;
       for (i = 0; i < nClients; i += 1) {
@@ -85,7 +75,7 @@ LoopbackSocialProvider.prototype.fillClients = function() {
         };
       }
     }
-  }
+  }*/
   return;
 };
 
@@ -94,11 +84,14 @@ LoopbackSocialProvider.prototype.fillClients = function() {
 LoopbackSocialProvider.prototype.login = function(opts, continuation) {
   var userId, clientId;
 
+  
   if (this.clients.hasOwnProperty(this.clientId)) {
     continuation(undefined, this.err("LOGIN_ALREADYONLINE"));
     return;
   }
   this.fillClients();
+  
+  
   for (userId in this.users) {
     if (this.users.hasOwnProperty(userId)) {
       this.dispatchEvent('onUserProfile', this.users[userId]);
@@ -109,6 +102,7 @@ LoopbackSocialProvider.prototype.login = function(opts, continuation) {
       this.dispatchEvent('onClientState', this.clients[clientId]);
     }
   }
+  console.log("login " + this.users[this.userId].userId + " " + this.clients[this.clientId].userId);
   continuation(this.clients[this.clientId]);
 };
 
@@ -147,7 +141,7 @@ LoopbackSocialProvider.prototype.sendMessage = function(to, msg, continuation) {
     return;
   }
 
-  console.log("Social to: " + to + " msg: " + msg);
+  console.log("Social to: " + to + " msg " + msg);
   
   if (to === this.userId || to === this.clientId) {
     this.dispatchEvent('onMessage', {

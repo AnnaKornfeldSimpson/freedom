@@ -6,12 +6,12 @@
     "index": "index.html",
     "static": [ 
       "../style.css",
-      "paxosUX.js"
+      "paxosLockUX.js"
     ]
   },
   "dependencies": {
     "socialprovider": {
-      "url": "../../providers/social/loopback/social.loopback.json",
+      "url": "../../providers/social/publiclog/publiclog.json",
       "api": "social"
     }
   },
@@ -19,10 +19,11 @@
   "default": "chat",
   "api": {
     "chat": {
+      "enqueue": {"type": "method", "value": "string"},
       "send": {"type": "method", "value": ["string", "string"]},
       "recv-status": {"type": "event", "value": "string"},
       "recv-err": {"type": "event", "value": {"message": "string"}},
-      "recv-message": {"type": "event", "value": {"message": "string", "from": {"userId": "string"}}},
+      "recv-message": {"type": "event", "value": {"message": "string", "from": "number"}},
       "recv-buddylist": {"type": "event", "value": "object"},
       "recv-uid": {"type": "event", "value": "string"}
     }
