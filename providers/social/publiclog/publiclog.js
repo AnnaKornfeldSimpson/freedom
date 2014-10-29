@@ -178,9 +178,8 @@ LogSocialProvider.prototype.beginMonitoring = function () {
         }
         try {
           var actualMsg = JSON.parse(item.msg);
-          var actualTo = +actualMsg.to;
           //console.log("Social: reading new message to: " + actualTo + " time: " + new Date(item.time));
-          if (actualTo === this.user && new Date(item.time) > this.lastScan) {
+          if (actualMsg.to === this.user && new Date(item.time) > this.lastScan) {
             console.log("Social: dispatching onMessage for: " + actualMsg.to + " from " + item.from + " msg " + actualMsg.msg);
             this.dispatchEvent('onMessage', {
               from: {
