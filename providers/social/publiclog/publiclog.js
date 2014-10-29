@@ -19,7 +19,7 @@ function LogSocialProvider(dispatchEvent) {
   
   this.url = null;
   this.id = null;     // userId of this user
-  this.user = Math.floor(Math.random()*1000);
+  this.user = "User" + Math.floor(Math.random()*1000); /* NO SPACES IN NAMES */
   this.lastScan = 0;
 
 }
@@ -122,7 +122,7 @@ LogSocialProvider.prototype.getClients = function (continuation) {
  * @return nothing
  **/
 LogSocialProvider.prototype.sendMessage = function (to, msg, continuation) {
-  console.log("Social sending to: " + to + " msg: " + msg);
+  console.log("Social sending from: " + this.user + " to: " + to + " msg: " + msg);
   if (this.url === null) {
     continuation(undefined, this.err("OFFLINE"));
     return;
@@ -169,7 +169,9 @@ LogSocialProvider.prototype.beginMonitoring = function () {
 
   onRead = function (resp) {
     if (resp.items) {
+      var readCounter = 0;
       resp.items.forEach(function (item) {
+        readCounter++;
         if (!this.users.hasOwnProperty(item.from) && !this.clients.hasOwnProperty(item.from)) {
           this.changeRoster(item.from, true);
           //console.warn(this.user);
@@ -199,6 +201,7 @@ LogSocialProvider.prototype.beginMonitoring = function () {
           //console.log("Social lastScan is now: " + this.lastScan);
         }
       }.bind(this));
+      console.log("onRead has read " + readCounter);
     }
     setTimeout(this.beginMonitoring.bind(this), 5000);
   }.bind(this);

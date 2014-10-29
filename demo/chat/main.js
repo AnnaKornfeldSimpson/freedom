@@ -19,7 +19,6 @@ var Chat = function (dispatchEvent) {
   this.clientList = {};
   this.myClientState = null;
   this.social = freedom.socialprovider();
-  this.friendDict = {};
 
   this.paxosInstances = [];
   this.numNodes = 3; //hardcode for now
@@ -101,23 +100,22 @@ Chat.prototype.addPaxosInstance = function(instNum, prepareNum, idNum) {
     };
     this.paxosInstances[instNum].promisers[idNum] = 1;
 
-    console.log(this.paxosInstances[instNum].state);
     return instNum;
   };
 
   /* Make a new instance with a proposal and send it to everyone */
 Chat.prototype.prepareMyInstance = function() {
     var newInst = this.addPaxosInstance(this.paxosInstances.length, 0, this.myID);
-    var res;
+    var res, msg;
     for (var userId in this.userList) {
       if (this.userList.hasOwnProperty(userId) && userId !== this.myID) {
-        var msg = this.makePaxosMessage("PREP", newInst, 0, this.myID, null, null, null);
+        msg = this.makePaxosMessage("PREP", newInst, 0, this.myID, null, null, null);
         //console.log("prepareInstance sending msg: " + msg);
         res = this.send(userId, msg);
       }
     }
     
-    console.log("prepareInstance done, has promisers? " + this.paxosInstances[newInst].hasOwnProperty('promisers'));
+    console.log("New instance " + newInst + " from " + this.myID + " sent " + msg);
     return res;
   };
   
@@ -298,7 +296,7 @@ Chat.prototype.boot = function () {
       case 'PROM':
         /* sanity check - I had sent a prepare */
         if (parsed.inst < this.paxosInstances.length && 
-            this.paxosInstances[parsed.inst].hasOwnProperty('promisers')) {
+            this.paxosInstances[parsed.inst].state === "Prepared") {
             console.log("PROM: yay I am sane" + parsed.inst);
           if (parsed.hasOwnProperty('oldProm') && 
               (!this.paxosInstances[parsed.inst].hasOwnProperty('highestPromNum') || 
@@ -440,6 +438,7 @@ Chat.prototype.boot = function () {
           this.paxosInstances[parsed.inst].value = parsed.value;
           this.paxosInstances[parsed.inst].acceptors[this.myID] = true;
           this.paxosInstances[parsed.inst].numAccepts++;
+          /* could add logic here that assumes REQ also accepted and learn if majority */
           this.paxosInstances[parsed.inst].state = "Accepted";
           for (userId in this.userList) {
             if (this.userList.hasOwnProperty(userId) && userId !== this.myID) {
@@ -461,9 +460,10 @@ Chat.prototype.boot = function () {
       case "ACPT":
         /* Play catch up if necessary */
         if (parsed.inst >= this.paxosInstances.length) {
-          for (i = this.paxosInstances.length; i <= parsed.inst; i++) {
+          for (i = this.paxosInstances.length; i < parsed.inst; i++) {
             this.prepareMyInstance(); /* send 0 to everyone on that parsed.instance in hopes of learning */
           }
+          this.addPaxosInstance(parsed.inst, parsed.prepNum, parsed.prepId);
         }
         else if (this.paxosInstances[parsed.inst].state === "Accepted" && 
                 (this.paxosInstances[parsed.inst].acceptedPNum === parsed.prepNum && 
@@ -471,6 +471,7 @@ Chat.prototype.boot = function () {
           /*if the data matches, add to acceptors data and check for LRND */
           this.paxosInstances[parsed.inst].acceptors[from] = 1;
           this.paxosInstances[parsed.inst].numAccepts++;
+          console.log("Accepts for " + parsed.inst + " now " + this.paxosInstances[parsed.inst].numAccepts);
           if (this.paxosInstances[parsed.inst].numAccepts >= this.majorityNodes) {
             /* yay consensus we can learn! */
             console.log("More than " + this.majorityNodes + " agree, we can learn inst: " + parsed.inst);
@@ -515,6 +516,18 @@ Chat.prototype.boot = function () {
           this.addPaxosInstance(parsed.inst, parsed.prepNum, parsed.prepId);
         }
         if (this.paxosInstances[parsed.inst].state !== "Learned") {
+          if (this.paxosInstances[parsed.inst].acceptedId === this.myID && parsed.prepId !== this.myID) {
+            /* re-enqueue value and start new instance */
+            if (this.paxosInstances[parsed.inst].valFromQueue) {
+              this.messageQueue.unshift(this.paxosInstances[parsed.inst].value);
+            }
+            this.prepareMyInstance();
+          }
+          else if (this.paxosInstances[parsed.inst].promiseId === this.myID && 
+                   this.messageQueues[2].length > 0) {
+            /* start a new instance for whatever we were trying to promise */
+            this.prepareMyInstance();
+          }
           console.log("Hooray we're learning " + parsed.inst + " value: " + parsed.value);
           this.learnValue(parsed.inst, parsed.prepNum, parsed.prepId, parsed.value);
         }
@@ -523,6 +536,7 @@ Chat.prototype.boot = function () {
         /* For now, just learning here. */
         if (parsed.inst < this.paxosInstances.length && this.paxosInstances[parsed.inst].state !== "Learned") { /* sanity check */
           this.learnValue(parsed.inst, parsed.oldPrep, parsed.oldId, parsed.value);
+          this.prepareMyInstance(); /* try again for the value elsewhere */
         }
         break;
       default:
@@ -537,11 +551,6 @@ Chat.prototype.boot = function () {
     //Just save it for now
     console.log("onUserProfile " + data.userId);
     this.userList[data.userId] = data;
-    if (!this.friendDict.hasOwnProperty(data.userId)) {
-      /* add the new userId to the mapping */
-      var mytempvar = Object.keys(this.friendDict).length;
-      this.friendDict[data.userId] = mytempvar;
-    }
     this.updateBuddyList();
   }.bind(this));
   
