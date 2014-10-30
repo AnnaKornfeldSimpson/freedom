@@ -139,7 +139,7 @@ Chat.prototype.upgradePrepare = function(inst, prepNum) {
     }
     (function(inst, prepNum) { /*closure */
       setTimeout(function() {
-        if (this.paxosInstances[inst].state !== "Learned") {
+        if (this.paxosInstances[inst].state !== "Learned" && this.paxosInstances[inst].promiseId !== myID) {
           var newPrepNum = Math.max(prepNum, this.paxosInstances[inst].promiseNum) + 1;
           console.log("Upgrading proposal for instance " + inst + " with prepNum " + newPrepNum);
           this.paxosInstances[inst].promiseNum = newPrepNum;
@@ -444,37 +444,45 @@ Chat.prototype.boot = function () {
         else if (this.paxosInstances[parsed.inst].promiseNum < parsed.prepNum || 
                  (this.paxosInstances[parsed.inst].promiseNum === parsed.prepNum && 
                   this.paxosInstances[parsed.inst].promiseId === from)) {
-          /* will accept this since haven't promised not to */
+          /* haven't promised not to accept */
           if (this.paxosInstances[parsed.inst].hasOwnProperty('acceptedPNum') && 
               (this.paxosInstances[parsed.inst].acceptedPNum !== parsed.prepNum || 
                 this.paxosInstances[parsed.inst].acceptedId !== from)) {
             /* previously accepted something else, reset acceptor counts */
-            for (i = 0; i < this.paxosInstances[parsed.inst].acceptors.length; i++) {
-              this.paxosInstances[parsed.inst].acceptors[i] = 0;
-              this.paxosInstances[parsed.inst].numAccepts = 0;
-            }
+            this.paxosInstances[parsed.inst].acceptors = {};
+            this.paxosInstances[parsed.inst].numAccepts = 0;
             /* if we were the source of the previous accept, requeue value and upgrade proposal */
-            if (this.paxosInstances[parsed.inst].acceptedId === this.myID) { 
-              if (this.paxosInstances[parsed.inst].valFromQueue) {
+            if (this.paxosInstances[parsed.inst].promiseId === this.myID || this.paxosInstances[parsed.inst].acceptedId === this.myID) { 
+              if (this.paxosInstances[parsed.inst].acceptedId === this.myID && this.paxosInstances[parsed.inst].valFromQueue) {
                 this.messageQueue.unshift(this.paxosInstances[parsed.inst].value);
               }
-              this.upgradePrepare(parsed.inst, parsed.prepNum);
+              /* accept but then we're going to upgrade */
+              for (userId in this.userList) {
+                if (this.userList.hasOwnProperty(userId) && userId !== this.myID) {
+                  this.send(userId, this.makePaxosMessage("ACPT", parsed.inst, parsed.prepNum, 
+                                                          from, null, null,
+                                                          this.paxosInstances[parsed.inst].value));
+                }
+              }
+              this.upgradePrepare(parsed.inst, parsed.prepNum); 
             }
-          }
-          this.paxosInstances[parsed.inst].promiseNum = parsed.prepNum;
-          this.paxosInstances[parsed.inst].promiseId = from;
-          this.paxosInstances[parsed.inst].acceptedPNum = parsed.prepNum;
-          this.paxosInstances[parsed.inst].acceptedId = from;
-          this.paxosInstances[parsed.inst].value = parsed.value;
-          this.paxosInstances[parsed.inst].acceptors[this.myID] = true;
-          this.paxosInstances[parsed.inst].numAccepts++;
-          /* could add logic here that assumes REQ also accepted and learn if majority */
-          this.paxosInstances[parsed.inst].state = "Accepted";
-          for (userId in this.userList) {
-            if (this.userList.hasOwnProperty(userId) && userId !== this.myID) {
-              this.send(userId, this.makePaxosMessage("ACPT", parsed.inst, parsed.prepNum, 
-                                                      from, null, null,
-                                                      this.paxosInstances[parsed.inst].value));
+            else { /* otherwise we'll be accepting */
+              this.paxosInstances[parsed.inst].promiseNum = parsed.prepNum;
+              this.paxosInstances[parsed.inst].promiseId = from;
+              this.paxosInstances[parsed.inst].acceptedPNum = parsed.prepNum;
+              this.paxosInstances[parsed.inst].acceptedId = from;
+              this.paxosInstances[parsed.inst].value = parsed.value;
+              this.paxosInstances[parsed.inst].acceptors[this.myID] = true;
+              this.paxosInstances[parsed.inst].numAccepts++;
+              /* could add logic here that assumes REQ also accepted and learn if majority */
+              this.paxosInstances[parsed.inst].state = "Accepted";
+              for (userId in this.userList) {
+                if (this.userList.hasOwnProperty(userId) && userId !== this.myID) {
+                  this.send(userId, this.makePaxosMessage("ACPT", parsed.inst, parsed.prepNum, 
+                                                          from, null, null,
+                                                          this.paxosInstances[parsed.inst].value));
+                }
+              }
             }
           }
         }
@@ -534,6 +542,15 @@ Chat.prototype.boot = function () {
                 this.send(userId, this.makePaxosMessage("LRND", parsed.inst, parsed.prepNum,
                                                         parsed.prepId, null, null,
                                                         this.paxosInstances[parsed.inst].value));
+              }
+            }
+          }
+          else { /* send our own accept */
+            for (userId in this.userList) {
+              if (this.userList.hasOwnProperty(userId) && userId !== this.myID) {
+                this.send(userId, this.makePaxosMessage("ACPT", parsed.inst, parsed.prepNum, 
+                                                        from, null, null,
+                                                        parsed.value));
               }
             }
           }

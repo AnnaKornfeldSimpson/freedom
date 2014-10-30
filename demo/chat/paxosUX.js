@@ -74,10 +74,10 @@ function start(instance) {
     redrawBuddylist();
   });
 
-  // Paxos learned value from somebody, from:from, value:value
+  // Paxos learned value from somebody, from:from, message:value
   chatClient.on('recv-message', function (data) {
-    console.log("Client Received " + data.value + " from " + data.from);
-    appendLog(document.createTextNode(data.from + ": " + data.value));
+    console.log("Client Received " + data.message + " from " + data.from);
+    appendLog(document.createTextNode("Instance " + data.inst ": " + data.from + ": " + data.message));
   });
   
   // On new messages, append it to our message log
