@@ -139,7 +139,7 @@ Chat.prototype.upgradePrepare = function(inst, prepNum) {
     }
     (function(inst, prepNum) { /*closure */
       setTimeout(function() {
-        if (this.paxosInstances[inst].state !== "Learned" && this.paxosInstances[inst].promiseId !== myID) {
+        if (this.paxosInstances[inst].state !== "Learned" && this.paxosInstances[inst].promiseId !== this.myID) {
           var newPrepNum = Math.max(prepNum, this.paxosInstances[inst].promiseNum) + 1;
           console.log("Upgrading proposal for instance " + inst + " with prepNum " + newPrepNum);
           this.paxosInstances[inst].promiseNum = newPrepNum;

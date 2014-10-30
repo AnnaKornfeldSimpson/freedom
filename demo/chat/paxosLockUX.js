@@ -100,7 +100,7 @@ function start(instance) {
       if(approvedQueue.hasOwnProperty(lockNum) && approvedQueue[lockNum].length > 0) {
         var newLocker = approvedQueue[lockNum].shift();
         lockStatus[lockNum] = newLocker;
-        appendLog(document.createTextNode(data.from + " removed from the wait queue and holding lock " + lockNum));
+        appendLog(document.createTextNode(newLocker + " removed from the wait queue and holding lock " + lockNum));
       }
     }
     else { /* unlock for someone who does not have the lock */

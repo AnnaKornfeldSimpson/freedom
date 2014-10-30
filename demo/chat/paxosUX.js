@@ -77,7 +77,7 @@ function start(instance) {
   // Paxos learned value from somebody, from:from, message:value
   chatClient.on('recv-message', function (data) {
     console.log("Client Received " + data.message + " from " + data.from);
-    appendLog(document.createTextNode("Instance " + data.inst ": " + data.from + ": " + data.message));
+    appendLog(document.createTextNode("Instance " + data.inst + ": " + data.from + ": " + data.message));
   });
   
   // On new messages, append it to our message log
