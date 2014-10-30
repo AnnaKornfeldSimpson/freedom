@@ -53,14 +53,14 @@ Chat.prototype.parsePaxosMessage = function(msg) {
   if (split.length >= 4) {
     /* both a prepnum and prepid */
     parsed.prepNum = +split[2];
-    parsed.prepId = +split[3];
+    parsed.prepId = split[3];
   }
   else if (split.length === 3) {
     parsed.value = split[2];
   }
   if (split.length === 7) {
     parsed.oldPrep = +split[4];
-    parsed.oldId = +split[5];
+    parsed.oldId = split[5];
     parsed.value = split[6];
   }
   else {
@@ -128,9 +128,7 @@ Chat.prototype.enqueue = function(message) {
   /* Starting over with a new preparation number, clear promisers and wait for timeout */
 Chat.prototype.upgradePrepare = function(inst, prepNum) {
     this.paxosInstances[inst].numPromises = 0;
-    for (var i = 0; i < this.paxosInstances[inst].promisers.length; i++) {
-      this.paxosInstances[inst].promisers[i] = 0;
-    }
+    this.paxosInstances[inst].promisers = {};
     if (this.paxosInstances[inst].hasOwnProperty('numNACKs')) {
       delete this.paxosInstances[inst].numNACKs;
       delete this.paxosInstances[inst].highestNACKnum;
@@ -143,9 +141,11 @@ Chat.prototype.upgradePrepare = function(inst, prepNum) {
       setTimeout(function() {
         if (this.paxosInstances[inst].state !== "Learned") {
           var newPrepNum = Math.max(prepNum, this.paxosInstances[inst].promiseNum) + 1;
+          console.log("Upgrading proposal for instance " + inst + " with prepNum " + newPrepNum);
           this.paxosInstances[inst].promiseNum = newPrepNum;
           this.paxosInstances[inst].promiseId = this.myID;
           this.paxosInstances[inst].numPromises = 1;
+          this.paxosInstances[inst].promisers = {};
           this.paxosInstances[inst].promisers[this.myID] = 1;
           for (var userId in this.userList) {
             if (this.userList.hasOwnProperty(userId) && userId !== this.myID) {
@@ -153,8 +153,8 @@ Chat.prototype.upgradePrepare = function(inst, prepNum) {
             }
           }
         }
-      }, 15000+Math.floor(Math.random()*20000)); /* 25 seconds +- 10 seconds */
-    })(inst, prepNum);
+      }.bind(this), 15000+Math.floor(Math.random()*60000)); /* 45 seconds +- 30 seconds */
+    }.bind(this))(inst, prepNum);
   };
   
 Chat.prototype.learnValue = function(inst, prepNum, idNum, value) {
@@ -171,7 +171,8 @@ Chat.prototype.learnValue = function(inst, prepNum, idNum, value) {
     // else if (value.type === "JOIN") { add to numNodes, majorityNodes, etc. }
     // else send the value's data
     /* Send the learned value to the UX */
-    this.dispatchEvent('recv-message', {message: value, from: idNum});
+    console.log("Dispatching to client: " + value + " from: " + idNum + " inst" + inst);
+    this.dispatchEvent('recv-message', {message: value, from: idNum, inst: inst});
   };
 
 /** 
@@ -212,7 +213,7 @@ Chat.prototype.boot = function () {
   * Paxos logic goes here, learned values are forwarded
   */
   this.social.on('onMessage', function (data) {
-    var from = +data.from.userId,
+    var from = data.from.userId,
       parsed = this.parsePaxosMessage(data.message),
       myPromiseId,
       myPromiseNum, 
@@ -297,7 +298,7 @@ Chat.prototype.boot = function () {
         /* sanity check - I had sent a prepare */
         if (parsed.inst < this.paxosInstances.length && 
             this.paxosInstances[parsed.inst].state === "Prepared") {
-            console.log("PROM: yay I am sane" + parsed.inst);
+            //console.log("PROM: yay I am sane " + parsed.inst);
           if (parsed.hasOwnProperty('oldProm') && 
               (!this.paxosInstances[parsed.inst].hasOwnProperty('highestPromNum') || 
                 this.paxosInstances[parsed.inst].highestPromNum < parsed.oldProm)) {
@@ -308,6 +309,7 @@ Chat.prototype.boot = function () {
           if (!this.paxosInstances[parsed.inst].promisers.hasOwnProperty(from)) { /* not a dup */
             this.paxosInstances[parsed.inst].promisers[from] = 1;
             this.paxosInstances[parsed.inst].numPromises++;
+            console.log("Inst " + parsed.inst + " has now received " + this.paxosInstances[parsed.inst].numPromises + " promises.");
             if (this.paxosInstances[parsed.inst].numPromises >= this.majorityNodes &&
                 (this.paxosInstances[parsed.inst].hasOwnProperty('highestPromVal') || 
                   this.messageQueues[2].length > 0)) { 
@@ -322,6 +324,8 @@ Chat.prototype.boot = function () {
                 myVal = this.messageQueues[2].shift();
                 this.paxosInstances[parsed.inst].valFromQueue = true;
               }
+              this.paxosInstances[parsed.inst].acceptedPNum = parsed.prepNum;
+              this.paxosInstances[parsed.inst].acceptedId = this.myID;
               this.paxosInstances[parsed.inst].value = myVal;
               this.paxosInstances[parsed.inst].acceptors[this.myID] = true;
               this.paxosInstances[parsed.inst].numAccepts = 1;
@@ -353,7 +357,7 @@ Chat.prototype.boot = function () {
         /* responding to either a prepare or an accept request */
         if (parsed.inst < this.paxosInstances.length && 
             this.paxosInstances[parsed.inst].promiseNum <= parsed.prepNum) { /* sanity check */
-            console.log("NACK yay I am sane " + parsed.inst + "state: " + this.paxosInstances[parsed.inst].state);
+            //console.log("NACK yay I am sane " + parsed.inst + " state: " + this.paxosInstances[parsed.inst].state);
           if (this.paxosInstances[parsed.inst].state === "Prepared" && 
               !this.paxosInstances[parsed.inst].promisers.hasOwnProperty(from)) {
               console.log("Counting this NACK from " + from);
@@ -369,9 +373,22 @@ Chat.prototype.boot = function () {
               this.paxosInstances[parsed.inst].highestNACKnum = parsed.prepNum;
             }
             if (this.paxosInstances[parsed.inst].numNACKs >= this.majorityNodes) { /* well we failed */
-              console.log("Too many NACKs received, upgrading proposal for " + parsed.inst + parsed.prepNum);
+              console.log("Too many NACKs received, upgrading proposal for " + parsed.inst + " was " + parsed.prepNum);
               this.upgradePrepare(parsed.inst, this.paxosInstances[parsed.inst].highestNACKnum);
-            }            
+            }
+            else { /* haven't failed yet, but do want to check back */
+              (function(inst, state, numNACKs) { /*closure */
+                setTimeout(function() {
+                  /* if we're still in limbo, upgrade proposal */
+                  if (this.paxosInstances[inst].state === state && 
+                      this.paxosInstances[inst].hasOwnProperty('numNACKs') &&
+                      this.paxosInstances[inst].numNACKs >= numNACKs) {
+                    console.log("Still stuck in NACK limbo, upgrading proposal for " + inst);
+                    this.upgradePrepare(inst, this.paxosInstances[inst].highestNACKnum);
+                  }
+                }.bind(this), 10000+Math.floor(Math.random()*10000)); /* 15 seconds +- 5 seconds */
+              }.bind(this))(parsed.inst, this.paxosInstances[parsed.inst].state, this.paxosInstances[parsed.inst].numNACKs);
+            }
           }
           else if (this.paxosInstances[parsed.inst].state === "Accepted" && 
                    !this.paxosInstances[parsed.inst].acceptors.hasOwnProperty(from)) {
@@ -392,7 +409,20 @@ Chat.prototype.boot = function () {
                 this.messageQueue.unshift(this.paxosInstances[parsed.inst].value);
               }
               this.upgradePrepare(parsed.inst, this.paxosInstances[parsed.inst].highestNACKnum);
-            }            
+            }
+            else { /* haven't failed yet, but do want to check back */
+              (function(inst, state, numNACKs) { /*closure */
+                setTimeout(function() {
+                  /* if we're still in limbo, upgrade proposal */
+                  if (this.paxosInstances[inst].state === state && 
+                      this.paxosInstances[inst].hasOwnProperty('numNACKs') &&
+                      this.paxosInstances[inst].numNACKs >= numNACKs) {
+                    console.log("Still stuck in NACK limbo, upgrading proposal for " + inst);
+                    this.upgradePrepare(inst, this.paxosInstances[inst].highestNACKnum);
+                  }
+                }.bind(this), 10000+Math.floor(Math.random()*10000)); /* 15 seconds +- 5 seconds */
+              }.bind(this))(parsed.inst, this.paxosInstances[parsed.inst].state, this.paxosInstances[parsed.inst].numNACKs);
+            }
           }
         }
         break;
@@ -490,9 +520,11 @@ Chat.prototype.boot = function () {
                   this.paxosInstances[parsed.inst].promiseId === parsed.prepId)) {
           this.paxosInstances[parsed.inst].acceptedPNum = parsed.prepNum;
           this.paxosInstances[parsed.inst].acceptedId = parsed.prepId;
+          this.paxosInstances[parsed.inst].state = "Accepted";
           this.paxosInstances[parsed.inst].value = parsed.value;
           this.paxosInstances[parsed.inst].acceptors[from] = 1;
           this.paxosInstances[parsed.inst].numAccepts = 2;
+          console.log("We have now accepted for inst " + parsed.inst);
           if (this.paxosInstances[parsed.inst].numAccepts >= this.majorityNodes) {
             /* yay consensus we can learn! */
             console.log("More than " + this.majorityNodes + " agree, we can learn inst: " + parsed.inst);

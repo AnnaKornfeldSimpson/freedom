@@ -169,7 +169,7 @@ LogSocialProvider.prototype.beginMonitoring = function () {
 
   onRead = function (resp) {
     if (resp.items) {
-      var readCounter = 0;
+      var readCounter = 0, greatestTime = null;
       resp.items.forEach(function (item) {
         readCounter++;
         if (!this.users.hasOwnProperty(item.from) && !this.clients.hasOwnProperty(item.from)) {
@@ -196,11 +196,16 @@ LogSocialProvider.prototype.beginMonitoring = function () {
           //console.log("Error parsing message: " + "'" + item.msg + "' err:" + e);
         }
         if (new Date(item.time) > this.lastScan) {
-          this.lastScan = new Date(item.time);
-          //console.log("Social lastScan is now: " + this.lastScan);
+          if (greatestTime === null || greatestTime < new Date (item.time)) {
+            greatestTime = new Date(item.time);
+          }
         }
       }.bind(this));
-      console.log("onRead has read " + readCounter);
+      //console.log("onRead has read " + readCounter);
+      if (greatestTime > this.lastScan) {
+        this.lastScan = greatestTime;
+        //console.log("Social lastScan is now: " + this.lastScan);
+      }
     }
     setTimeout(this.beginMonitoring.bind(this), 5000);
   }.bind(this);

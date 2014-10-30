@@ -78,24 +78,35 @@ function start(instance) {
 
   // Paxos learned value from somebody, from:from, value:value
   chatClient.on('recv-message', function (data) {
-    console.log("Client Received " + data.message + " from " + data.from);
+    console.log("Client Received " + data.message + " from " + data.from + " for inst " + data.inst);
     var lockNum = +(data.message.substring(data.message.indexOf('(') + 1, data.message.length - 1));
+    appendLog(document.createTextNode("Inst " + data.inst + ": " + data.from + ": " + data.message));
     if (data.message.indexOf('(') === 4) { // it's a lock
-      if (lockStatus[lockNum] === true) { 
-        approvedQueue[lockNum].push();
+      if (lockStatus.hasOwnProperty(lockNum) && lockStatus[lockNum] !== false) {
+        appendLog(document.createTextNode("lock " + lockNum + " in use, adding " + data.from + " to the wait queue."));
+        if (approvedQueue.hasOwnProperty(lockNum)) {
+          approvedQueue[lockNum].push(data.from);
+        }
+        else {
+          approvedQueue[lockNum] = [data.from];
+        }
       }
       else {
-        lockStatus[lockNum] = true;
+        lockStatus[lockNum] = data.from;
       }
     }
-    else { /* unlock */
+    else if (lockStatus[lockNum] === data.from) { /* unlock */
       lockStatus[lockNum] = false;
       if(approvedQueue.hasOwnProperty(lockNum) && approvedQueue[lockNum].length > 0) {
-        approvedQueue[lockNum].shift();
-        lockStatus[lockNum] = true;
+        var newLocker = approvedQueue[lockNum].shift();
+        lockStatus[lockNum] = newLocker;
+        appendLog(document.createTextNode(data.from + " removed from the wait queue and holding lock " + lockNum));
       }
     }
-    appendLog(document.createTextNode(data.from + ": " + data.message));
+    else { /* unlock for someone who does not have the lock */
+      appendLog(document.createTextNode(data.from + " does not hold lock " + lockNum + ", ignoring unlock request"));
+    }
+    
   });
   
   // On new messages, append it to our message log
